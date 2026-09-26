@@ -9,7 +9,7 @@ from openai import OpenAI
 
 INDEX_NAME = "rag-sai-satcharitra"
 
-
+a
 @lru_cache
 def get_search_client() -> SearchClient:
     return SearchClient(
