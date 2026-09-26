@@ -1,0 +1,4 @@
+fastapi
+uvicorn[standard]
+azure-search-documents
+openai
