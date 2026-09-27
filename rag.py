@@ -1,29 +1,52 @@
 import os
 from functools import lru_cache
 
-from azure.core.credentials import AzureKeyCredential
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from azure.search.documents import SearchClient
 from azure.search.documents.models import VectorizableTextQuery
 from openai import OpenAI
 
 
 INDEX_NAME = "rag-sai-satcharitra"
+COGNITIVE_SCOPE = "https://cognitiveservices.azure.com/.default"
+
+
+@lru_cache
+def get_credential() -> DefaultAzureCredential:
+    # In Azure this uses the Container App's managed identity.
+    # On a machine with `az login`, it uses your own account instead.
+    return DefaultAzureCredential()
+
 
 @lru_cache
 def get_search_client() -> SearchClient:
+    # SearchClient refreshes Entra tokens itself.
     return SearchClient(
         endpoint=os.environ["AZURE_SEARCH_ENDPOINT"],
         index_name=INDEX_NAME,
-        credential=AzureKeyCredential(os.environ["AZURE_SEARCH_KEY"]),
+        credential=get_credential(),
     )
 
 
 @lru_cache
-def get_openai_client() -> OpenAI:
+def get_token_provider():
+    # Returns a function that gives a valid bearer token,
+    # refreshing it before it expires.
+    return get_bearer_token_provider(get_credential(), COGNITIVE_SCOPE)
+
+
+@lru_cache
+def get_base_openai_client() -> OpenAI:
     return OpenAI(
         base_url=os.environ["OPENAI_BASE_URL"],
-        api_key=os.environ["OPENAI_API_KEY"],
+        api_key=get_token_provider()(),
     )
+
+
+def get_openai_client() -> OpenAI:
+    # Tokens expire after about an hour, so attach a current one per request.
+    # with_options reuses the base client's connection pool.
+    return get_base_openai_client().with_options(api_key=get_token_provider()())
 
 
 def retrieve(question: str, top_k: int = 5) -> list[dict]:
