@@ -25,4 +25,4 @@ def ask(request: AskRequest):
     try:
         return answer(request.question)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from excss
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
